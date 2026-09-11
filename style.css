@@ -48,6 +48,7 @@ body {
 
 img {
     display: block;
+
     max-width: 100%;
 }
 
@@ -196,7 +197,7 @@ button:focus-visible {
 
     align-items: center;
 
-    gap: 24px;
+    gap: 22px;
 }
 
 .nav nav a {
@@ -208,6 +209,7 @@ button:focus-visible {
 
 .nav nav a:hover {
     text-decoration: underline;
+
     text-underline-offset: 5px;
 }
 
@@ -322,12 +324,6 @@ button:focus-visible {
     border-radius: 18px;
 }
 
-
-/*
-   중요:
-   cover가 아니라 contain 사용
-   → 머리부터 발끝까지 원본 전체 표시
-*/
 .profile-image {
     width: 100%;
     height: 370px;
@@ -519,6 +515,17 @@ button:focus-visible {
     color: #454b54;
 }
 
+.card-link {
+    display: inline-block;
+
+    margin-top: 16px;
+
+    font-size: 14px;
+    font-weight: 900;
+
+    text-underline-offset: 4px;
+}
+
 
 /* =========================
    EXPERIENCE
@@ -559,11 +566,19 @@ button:focus-visible {
     color: #454b54;
 }
 
-.text-link {
-    display: inline-block;
+.experience-links {
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 7px;
 
     margin-top: 18px;
+}
 
+.text-link {
     font-weight: 900;
 
     text-underline-offset: 5px;
@@ -637,19 +652,21 @@ button:focus-visible {
 
 
 /* =========================
-   PROJECT EVIDENCE
+   DEVELOPMENT EVIDENCE
 ========================= */
 
-.project-evidence {
+.development-evidence-grid {
+    display: grid;
+
+    grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+    gap: 16px;
+
     margin-top: 40px;
+}
 
-    display: flex;
-
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 30px;
-
+.development-evidence-card {
     padding: 26px;
 
     background: var(--white);
@@ -659,14 +676,16 @@ button:focus-visible {
     border-radius: 18px;
 }
 
-.project-evidence h3 {
+.development-evidence-card h3 {
     margin: 0 0 8px;
 
-    font-size: 22px;
+    font-size: 23px;
 }
 
-.project-evidence p {
-    margin-bottom: 0;
+.development-evidence-card p {
+    min-height: 80px;
+
+    margin-bottom: 18px;
 
     color: var(--sub-text);
 }
@@ -678,6 +697,7 @@ button:focus-visible {
 
 .evidence-heading {
     margin-top: 70px;
+
     margin-bottom: 22px;
 }
 
@@ -695,7 +715,7 @@ button:focus-visible {
 
 
 /* =========================
-   COMPETITION CARD
+   COMPETITION
 ========================= */
 
 .competition-card {
@@ -775,11 +795,6 @@ button:focus-visible {
     min-width: 0;
 }
 
-
-/*
-   여기 역시 cover 제거
-   → 사진 전체가 보이도록 함
-*/
 .competition-images img {
     width: 100%;
     height: 270px;
@@ -794,17 +809,7 @@ button:focus-visible {
     border-radius: 12px;
 }
 
-
-/* 현장 사진도 전체 표시 */
-.competition-photo {
-    object-fit: contain;
-}
-
-
-/* 증빙/대진표도 전체 표시 */
 .competition-document {
-    object-fit: contain;
-
     padding: 6px;
 }
 
@@ -814,7 +819,6 @@ button:focus-visible {
     color: var(--sub-text);
 
     font-size: 13px;
-
     font-weight: 700;
 
     text-align: center;
@@ -867,9 +871,9 @@ button:focus-visible {
 
     object-fit: contain;
 
-    border-radius: 12px;
-
     border: 1px solid var(--line);
+
+    border-radius: 12px;
 }
 
 
@@ -898,6 +902,18 @@ button:focus-visible {
 
 .footer-content p {
     margin: 0;
+}
+
+.footer-links {
+    display: flex;
+
+    gap: 18px;
+}
+
+.footer-links a {
+    font-weight: 800;
+
+    text-underline-offset: 4px;
 }
 
 
@@ -939,10 +955,12 @@ button:focus-visible {
 
 @media (max-width: 780px) {
 
-    .project-evidence {
-        align-items: flex-start;
+    .development-evidence-grid {
+        grid-template-columns: 1fr;
+    }
 
-        flex-direction: column;
+    .development-evidence-card p {
+        min-height: auto;
     }
 
     .competition-card {
