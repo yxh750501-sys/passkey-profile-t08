@@ -5,6 +5,8 @@ const base=process.env.T08_TEST_URL||'http://localhost:4189/';
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
 const page=await browser.newPage(),cdp=await page.context().newCDPSession(page),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
+const registrationBodies=[];
+page.on('request',r=>{if(r.url().endsWith('/api/register/verify'))registrationBodies.push(r.postData()||'')});
 await cdp.send('WebAuthn.enable');
 async function device(){return (await cdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',hasResidentKey:true,hasUserVerification:true,isUserVerified:true}})).authenticatorId}
 function check(ok,why){if(!ok)throw Error(why)}
@@ -15,6 +17,8 @@ try {
   check(!await page.locator('#pk-private').isVisible(),'Private area visible before login');
   check(await page.evaluate(async()=> (await fetch('/api/private')).status)===401,'Anonymous private API did not reject');
   const a='qa_a_'+randomBytes(4).toString('hex');
+  const registrationChallenges=await page.evaluate(async(username)=>{const send=async()=> (await (await fetch('/api/register/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,storage:'device'})})).json()).challenge;return [await send(),await send()]},a);
+  check(registrationChallenges[0]!==registrationChallenges[1],'Registration challenges repeated');
   await page.fill('#pk-username',a);await page.fill('#pk-label','첫 기기');await page.click('#pk-register');
   await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
   await page.waitForFunction(()=>document.querySelectorAll('#pk-items li').length===3);
@@ -22,6 +26,9 @@ try {
   const aItems=await page.evaluate(async()=> (await (await fetch('/api/private')).json()).items.map(x=>x.id));
   const keys1=await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items);
   check(keys1.length===1,'First credential missing');
+  check(registrationBodies.length>0&&registrationBodies.every(x=>!/(?:privateKey|secretKey|password)/i.test(x)),'Registration request contains a private secret');
+  const loginChallenges=await page.evaluate(async(username)=>{const send=async()=> (await (await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})})).json()).challenge;return [await send(),await send()]},a);
+  check(loginChallenges[0]!==loginChallenges[1],'Login challenges repeated');
   await cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId:first});
   const second=await device();
   await page.fill('#pk-label2','예비 기기');await page.click('#pk-add-key');
@@ -50,5 +57,5 @@ try {
   const isolation=await page.evaluate(async({username,bKey})=>{const r=await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})});const o=await r.json();o.challenge=decode(o.challenge);o.allowCredentials=[{id:decode(bKey),type:'public-key'}];const c=await navigator.credentials.get({publicKey:o});return (await fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:authJSON(c)})})).status},{username:a,bKey});
   check(isolation===403,'Other account passkey accepted');
   check(errors.length===0,'Browser errors: '+errors.join('; '));
-  console.log('PASS public profile; anonymous 401; two passkeys; cancel leaves no key; challenge replay 403; deleted key 403 and remaining-key login; logout 401; cross-account query isolation and passkey 403');
+  console.log('PASS public profile; anonymous 401; unique registration/login challenges; request has no private key; two passkeys; cancel leaves no key; challenge replay 403; deleted key 403 and remaining-key login; logout 401; cross-account query isolation and passkey 403');
 } finally {await browser.close()}
