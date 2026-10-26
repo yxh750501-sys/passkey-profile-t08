@@ -30,7 +30,12 @@ async function api(req,db,path,body) {
     const username=user?.username||name(body.username);
     if(!user && await one(db,'SELECT id FROM accounts WHERE username=?',username)) return fail('이미 사용 중인 아이디입니다.',409);
     const existing=user?await rows(db,'SELECT id FROM credentials WHERE account_id=?',user.account_id):[];
-    const options=await generateRegistrationOptions({rpName:'내 소개와 패스키 공간',rpID:host,userName:username,userID:new TextEncoder().encode(user?.account_id||crypto.randomUUID()),attestationType:'none',authenticatorSelection:{residentKey:'preferred',userVerification:'required'},excludeCredentials:existing.map(x=>({id:x.id}))});
+    const storage=['phone','device','security-key'].includes(body.storage)?body.storage:'phone';
+    const selection={residentKey:'preferred',userVerification:'required'};
+    if(storage==='device') selection.authenticatorAttachment='platform';
+    if(storage==='security-key') selection.authenticatorAttachment='cross-platform';
+    const options=await generateRegistrationOptions({rpName:'내 소개와 패스키 공간',rpID:host,userName:username,userID:new TextEncoder().encode(user?.account_id||crypto.randomUUID()),attestationType:'none',authenticatorSelection:selection,excludeCredentials:existing.map(x=>({id:x.id}))});
+    options.hints=[storage==='phone'?'hybrid':storage==='device'?'client-device':'security-key'];
     return json(options,200,{'set-cookie':await challenge(db,req,'register',user?.account_id||null,username,options.challenge)});
   }
   if(path==='/api/register/verify' && req.method==='POST') {
