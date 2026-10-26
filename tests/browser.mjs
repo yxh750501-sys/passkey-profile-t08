@@ -23,7 +23,7 @@ try {
   await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
   await page.waitForFunction(()=>document.querySelectorAll('#pk-items li').length===3);
   check(await page.locator('#pk-items li').count()===3,'Private item count');
-  const aItems=await page.evaluate(async()=> (await (await fetch('/api/private')).json()).items.map(x=>x.id));
+  const aItems=await page.evaluate(async()=> (await (await fetch('/api/private')).json()).items);
   const keys1=await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items);
   check(keys1.length===1,'First credential missing');
   check(registrationBodies.length>0&&registrationBodies.every(x=>!/(?:privateKey|secretKey|password)/i.test(x)),'Registration request contains a private secret');
@@ -52,8 +52,8 @@ try {
   const b='qa_b_'+randomBytes(4).toString('hex');await page.fill('#pk-username',b);await page.fill('#pk-label','다른 계정 기기');await page.click('#pk-register');await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
   const bKey=(await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items))[0].id;
   check(await page.locator('#pk-items li').count()===3,'Other account private items missing');
-  const bItems=await page.evaluate(async(id)=> (await (await fetch('/api/private?accountId='+encodeURIComponent(id))).json()).items.map(x=>x.id),a);
-  check(bItems.length===3&&bItems.every(id=>!aItems.includes(id)),'Other account data leaked by accountId');
+  const bItems=await page.evaluate(async(id)=> (await (await fetch('/api/private?accountId='+encodeURIComponent(id))).json()).items,a);
+  check(bItems.length===3&&bItems.every(item=>!aItems.some(other=>other.id===item.id||other.body===item.body)),'Other account data leaked by accountId');
   const isolation=await page.evaluate(async({username,bKey})=>{const r=await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})});const o=await r.json();o.challenge=decode(o.challenge);o.allowCredentials=[{id:decode(bKey),type:'public-key'}];const c=await navigator.credentials.get({publicKey:o});return (await fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:authJSON(c)})})).status},{username:a,bKey});
   check(isolation===403,'Other account passkey accepted');
   check(errors.length===0,'Browser errors: '+errors.join('; '));

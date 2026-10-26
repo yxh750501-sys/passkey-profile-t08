@@ -49,7 +49,7 @@ async function api(req,db,path,body) {
     const writes=[];
     if(!user) writes.push(db.prepare('INSERT INTO accounts VALUES (?,?,?)').bind(accountId,pending.username,time));
     writes.push(db.prepare('INSERT INTO credentials VALUES (?,?,?,?,?,?,?)').bind(credential.id,accountId,b64(credential.publicKey),credential.counter,JSON.stringify(credential.transports||[]),label(body.label),time));
-    if(!user) for(const [title,text] of [['준비 중인 프로젝트','가상의 프로젝트 아이디어 메모'],['지원 목록','가상의 지원 대상 A·B'],['돌아보기','가상의 한 주 회고']]) writes.push(db.prepare('INSERT INTO private_items VALUES (?,?,?,?)').bind(crypto.randomUUID(),accountId,title,text));
+    if(!user) for(const [title,text] of [['준비 중인 프로젝트',`가상 계정 ${pending.username}의 프로젝트 아이디어`],['지원 목록',`가상 계정 ${pending.username}의 지원 대상 A·B`],['돌아보기',`가상 계정 ${pending.username}의 한 주 회고`]]) writes.push(db.prepare('INSERT INTO private_items VALUES (?,?,?,?)').bind(crypto.randomUUID(),accountId,title,text));
     await db.batch(writes);
     return json({ok:true,credentialId:credential.id},201,{'set-cookie':user?'':await issueSession(db,accountId)});
   }
