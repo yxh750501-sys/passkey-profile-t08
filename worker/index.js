@@ -17,7 +17,7 @@ async function issueSession(db,accountId) { const token=randomToken(); await db.
 async function rows(db,sql,...args) { return (await db.prepare(sql).bind(...args).all()).results; }
 async function one(db,sql,...args) { return db.prepare(sql).bind(...args).first(); }
 async function readBody(req) { const raw=await req.text(); if(raw.length>25000) throw Error('요청이 너무 큽니다.'); return JSON.parse(raw); }
-async function challenge(db,req,kind,accountId,username,value) { const id=crypto.randomUUID(); await db.prepare('INSERT INTO challenges VALUES (?,?,?,?,?,?)').bind(id,kind,accountId,username,value,new Date(Date.now()+5*60000).toISOString()).run(); return cookie('t08_flow',id,300); }
+async function challenge(db,req,kind,accountId,username,value) { await db.prepare('DELETE FROM challenges WHERE expires_at<?').bind(now()).run(); const id=crypto.randomUUID(); await db.prepare('INSERT INTO challenges VALUES (?,?,?,?,?,?)').bind(id,kind,accountId,username,value,new Date(Date.now()+5*60000).toISOString()).run(); return cookie('t08_flow',id,300); }
 async function consume(db,req,kind) { const id=getCookie(req,'t08_flow'); const row=await one(db,'SELECT * FROM challenges WHERE id=? AND kind=? AND expires_at>?',id,kind,now()); if(!row) return null; await db.prepare('DELETE FROM challenges WHERE id=?').bind(id).run(); return row; }
 function name(value) { const s=typeof value==='string'?value.trim().toLowerCase():''; if(!/^[a-z0-9_]{3,32}$/.test(s)) throw Error('아이디는 영문 소문자·숫자·_로 3~32자입니다.'); return s; }
 function label(value) { const s=typeof value==='string'?value.trim():''; if(!s||s.length>60) throw Error('패스키 이름은 1~60자입니다.'); return s; }
@@ -26,6 +26,7 @@ async function api(req,db,path,body) {
   const requestUrl=new URL(req.url), host=requestUrl.hostname, origin=requestUrl.origin;
   const user=await session(req,db);
   if(path==='/api/me' && req.method==='GET') return user?json({username:user.username}):fail('로그인이 필요합니다.',401);
+  if(path==='/api/register/cancel' && req.method==='POST') { const id=getCookie(req,'t08_flow'); await db.prepare("DELETE FROM challenges WHERE id=? AND kind='register'").bind(id).run(); return json({ok:true},200,{'set-cookie':cookie('t08_flow','',0)}); }
   if(path==='/api/register/options' && req.method==='POST') {
     const username=user?.username||name(body.username);
     if(!user && await one(db,'SELECT id FROM accounts WHERE username=?',username)) return fail('이미 사용 중인 아이디입니다.',409);

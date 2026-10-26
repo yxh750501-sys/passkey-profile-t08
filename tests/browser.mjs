@@ -28,6 +28,8 @@ try {
   await page.waitForFunction(()=>document.querySelectorAll('#pk-keys li').length===2);
   const keys2=await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items);
   check(keys2.length===2&&keys2[0].id!==keys2[1].id,'Second credential missing');
+  const cancel=await page.evaluate(async()=>{await fetch('/api/register/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({storage:'device'})});const stopped=await fetch('/api/register/cancel',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const reused=await fetch('/api/register/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({label:'취소한 키',response:{}})});const keys=await (await fetch('/api/passkeys')).json();return [stopped.status,reused.status,keys.items.length]});
+  check(cancel[0]===200&&cancel[1]===403&&cancel[2]===2,'Cancelled registration persisted');
   const replay=await page.evaluate(async(username)=>{const o=await (await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})})).json();o.challenge=decode(o.challenge);for(const c of o.allowCredentials)c.id=decode(c.id);const c=await navigator.credentials.get({publicKey:o});const body=JSON.stringify({response:authJSON(c)});const send=()=>fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body});return [(await send()).status,(await send()).status]},a);
   check(replay[0]===200&&replay[1]===403,'Challenge reuse accepted');
   const removed=await page.evaluate(async(id)=> (await fetch('/api/passkeys/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})})).status,keys1[0].id);
@@ -48,5 +50,5 @@ try {
   const isolation=await page.evaluate(async({username,bKey})=>{const r=await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})});const o=await r.json();o.challenge=decode(o.challenge);o.allowCredentials=[{id:decode(bKey),type:'public-key'}];const c=await navigator.credentials.get({publicKey:o});return (await fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:authJSON(c)})})).status},{username:a,bKey});
   check(isolation===403,'Other account passkey accepted');
   check(errors.length===0,'Browser errors: '+errors.join('; '));
-  console.log('PASS public profile; anonymous 401; two passkeys; challenge replay 403; deleted key 403 and remaining-key login; logout 401; cross-account query isolation and passkey 403');
+  console.log('PASS public profile; anonymous 401; two passkeys; cancel leaves no key; challenge replay 403; deleted key 403 and remaining-key login; logout 401; cross-account query isolation and passkey 403');
 } finally {await browser.close()}
