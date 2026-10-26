@@ -1,0 +1,16 @@
+{
+  "name": "passkey-profile-t08",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@simplewebauthn/server": "^13.2.2",
+    "esbuild": "^0.25.12"
+  }
+}
