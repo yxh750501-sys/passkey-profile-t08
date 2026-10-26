@@ -19,6 +19,7 @@ try {
   await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
   await page.waitForFunction(()=>document.querySelectorAll('#pk-items li').length===3);
   check(await page.locator('#pk-items li').count()===3,'Private item count');
+  const aItems=await page.evaluate(async()=> (await (await fetch('/api/private')).json()).items.map(x=>x.id));
   const keys1=await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items);
   check(keys1.length===1,'First credential missing');
   await cdp.send('WebAuthn.removeVirtualAuthenticator',{authenticatorId:first});
@@ -31,6 +32,8 @@ try {
   check(replay[0]===200&&replay[1]===403,'Challenge reuse accepted');
   const removed=await page.evaluate(async(id)=> (await fetch('/api/passkeys/delete',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})})).status,keys1[0].id);
   check(removed===200,'Delete first passkey failed');
+  const deletedKey=await page.evaluate(async({username,id})=>{await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})});return (await fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:{id}})})).status},{username:a,id:keys1[0].id});
+  check(deletedKey===403,'Deleted passkey accepted');
   await page.click('#pk-logout');await page.waitForFunction(()=>document.querySelector('#pk-private').hidden);
   check(await page.evaluate(async()=> (await fetch('/api/private')).status)===401,'Logout session remained active');
   await page.fill('#pk-username',a);await page.click('#pk-login');await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
@@ -40,8 +43,10 @@ try {
   const b='qa_b_'+randomBytes(4).toString('hex');await page.fill('#pk-username',b);await page.fill('#pk-label','다른 계정 기기');await page.click('#pk-register');await page.waitForFunction(()=>!document.querySelector('#pk-private').hidden);
   const bKey=(await page.evaluate(async()=> (await (await fetch('/api/passkeys')).json()).items))[0].id;
   check(await page.locator('#pk-items li').count()===3,'Other account private items missing');
+  const bItems=await page.evaluate(async(id)=> (await (await fetch('/api/private?accountId='+encodeURIComponent(id))).json()).items.map(x=>x.id),a);
+  check(bItems.length===3&&bItems.every(id=>!aItems.includes(id)),'Other account data leaked by accountId');
   const isolation=await page.evaluate(async({username,bKey})=>{const r=await fetch('/api/login/options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username})});const o=await r.json();o.challenge=decode(o.challenge);o.allowCredentials=[{id:decode(bKey),type:'public-key'}];const c=await navigator.credentials.get({publicKey:o});return (await fetch('/api/login/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:authJSON(c)})})).status},{username:a,bKey});
   check(isolation===403,'Other account passkey accepted');
   check(errors.length===0,'Browser errors: '+errors.join('; '));
-  console.log('PASS public profile; anonymous 401; two passkeys; challenge replay 403; delete and remaining-key login; logout 401; second account passkey isolation 403');
+  console.log('PASS public profile; anonymous 401; two passkeys; challenge replay 403; deleted key 403 and remaining-key login; logout 401; cross-account query isolation and passkey 403');
 } finally {await browser.close()}
